@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ import (
 
 var verifyBase string
 var verifyLocalOnly bool
+var verifyReviewers string
 
 var verifyCmd = &cobra.Command{
 	Use:   "verify",
@@ -27,6 +29,7 @@ var verifyCmd = &cobra.Command{
 func init() {
 	verifyCmd.Flags().StringVar(&verifyBase, "base", "", "base ref to diff against (defaults to config.project.source_branch)")
 	verifyCmd.Flags().BoolVar(&verifyLocalOnly, "local-only", false, "run deterministic checks only; skip AI reviewers")
+	verifyCmd.Flags().StringVar(&verifyReviewers, "reviewers", "", "comma-separated list of AI reviewers (e.g. claude_code,codex)")
 	rootCmd.AddCommand(verifyCmd)
 }
 
@@ -51,16 +54,39 @@ func runVerify(cmd *cobra.Command, args []string) error {
 
 	gc := git.New(root)
 
-	verdict, err := review.RunDeterministic(ctx, cfg, gc, base)
-	if err != nil {
-		return fmt.Errorf("run deterministic checks: %w", err)
-	}
-
-	// Write reports
 	if err := os.MkdirAll(project.ReviewsDir(root), 0o755); err != nil {
 		return fmt.Errorf("create reviews dir: %w", err)
 	}
 
+	var verdict *review.FinalVerdict
+
+	if verifyLocalOnly || verifyReviewers == "" {
+		// Deterministic-only path (M2 implementation)
+		verdict, err = review.RunDeterministic(ctx, cfg, gc, base)
+		if err != nil {
+			return fmt.Errorf("run deterministic checks: %w", err)
+		}
+	} else {
+		// Multi-reviewer path (M11)
+		reviewers := strings.Split(verifyReviewers, ",")
+		verdict, err = review.RunMultiVerify(ctx, cfg, gc, review.MultiVerifyOptions{
+			Base:      base,
+			Reviewers: reviewers,
+			LocalOnly: verifyLocalOnly,
+			RootDir:   root,
+		})
+		if err != nil {
+			return fmt.Errorf("run verify: %w", err)
+		}
+
+		// Write disagreement report
+		if len(verdict.Disagreements) > 0 {
+			disReport := review.RenderDisagreementReport(verdict.Disagreements)
+			_ = os.WriteFile(project.DisagreementReportMD(root), []byte(disReport), 0o644)
+		}
+	}
+
+	// Write reports
 	mdPath := project.FinalVerdictMD(root)
 	mdContent := report.RenderFinalVerdict(verdict)
 	if err := os.WriteFile(mdPath, []byte(mdContent), 0o644); err != nil {
@@ -75,6 +101,9 @@ func runVerify(cmd *cobra.Command, args []string) error {
 	// Print to stdout
 	fmt.Printf("\nVerdict: %s\n", verdict.Verdict)
 	fmt.Printf("Summary: %s\n", verdict.Summary)
+	if verdict.RecommendedFixPrompt != "" {
+		fmt.Printf("\nRecommended Fix:\n%s\n", verdict.RecommendedFixPrompt)
+	}
 	fmt.Printf("\nReports written to:\n  %s\n  %s\n", mdPath, jsonPath)
 
 	// Audit

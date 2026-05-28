@@ -9,8 +9,7 @@ import (
 )
 
 // RenderFinalVerdict renders the markdown report for a FinalVerdict.
-// Covers sections 1, 2, 5, 12, 13 from SPEC.md §17.
-// Remaining sections are populated in later milestones.
+// Covers all sections from SPEC.md §17 (M11 fills the AI reviewer sections).
 func RenderFinalVerdict(v *review.FinalVerdict) string {
 	var sb strings.Builder
 
@@ -25,7 +24,7 @@ func RenderFinalVerdict(v *review.FinalVerdict) string {
 	sb.WriteString(v.Summary)
 	sb.WriteString("\n\n")
 
-	// Section 5: deterministic check findings
+	// Section 3: deterministic check findings
 	if len(v.DeterministicChecks) > 0 {
 		sb.WriteString("## Deterministic Check Findings\n\n")
 		sb.WriteString("| Check | Severity | File | Message |\n")
@@ -36,7 +35,6 @@ func RenderFinalVerdict(v *review.FinalVerdict) string {
 		}
 		sb.WriteString("\n")
 
-		// Remediations
 		sb.WriteString("### Remediations\n\n")
 		for _, r := range v.DeterministicChecks {
 			if r.Remediation != "" {
@@ -46,7 +44,19 @@ func RenderFinalVerdict(v *review.FinalVerdict) string {
 		sb.WriteString("\n")
 	}
 
-	// Section 12: requirement coverage (placeholder until M11)
+	// Section 4: reviewer findings
+	if len(v.ReviewerFindings) > 0 {
+		sb.WriteString("## Reviewer Findings\n\n")
+		sb.WriteString("| Reviewer | Severity | AC | Message |\n")
+		sb.WriteString("|---|---|---|---|\n")
+		for _, f := range v.ReviewerFindings {
+			sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n",
+				f.Reviewer, f.Severity, f.RelatedAC, f.Message))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Section 5: requirement coverage
 	if len(v.RequirementCoverage) > 0 {
 		sb.WriteString("## Requirement Coverage\n\n")
 		sb.WriteString("| AC | Source | Status | Evidence | Notes |\n")
@@ -58,7 +68,20 @@ func RenderFinalVerdict(v *review.FinalVerdict) string {
 		sb.WriteString("\n")
 	}
 
-	// Section 13: recommended fix prompt
+	// Section 6: reviewer disagreements
+	if len(v.Disagreements) > 0 {
+		sb.WriteString("## Reviewer Disagreements\n\n")
+		for _, d := range v.Disagreements {
+			sb.WriteString(fmt.Sprintf("**%s**\n\n", d.Topic))
+			for _, f := range d.Findings {
+				sb.WriteString(fmt.Sprintf("- %s [%s]: %s\n", f.Reviewer, f.Severity, f.Message))
+			}
+			sb.WriteString("\n")
+		}
+		sb.WriteString("*Harness conclusion: WARN on disagreement — human review recommended.*\n\n")
+	}
+
+	// Section 7: recommended fix prompt
 	if v.RecommendedFixPrompt != "" {
 		sb.WriteString("## Recommended Fix Prompt\n\n")
 		sb.WriteString("```\n")
