@@ -34,14 +34,9 @@ func runVerify(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	cwd, err := os.Getwd()
+	root, err := requireRoot()
 	if err != nil {
-		return fmt.Errorf("get working directory: %w", err)
-	}
-
-	root, err := project.FindRoot(cwd, cfgPath)
-	if err != nil {
-		return fmt.Errorf("%w\nRun 'aiguard init' to initialize a workspace first.", err)
+		return err
 	}
 
 	cfg, err := config.Load(project.ConfigFile(root))
