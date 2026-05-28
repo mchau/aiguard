@@ -1,0 +1,31 @@
+You are reviewing an in-progress implementation checkpoint.
+
+## Plan Steps Targeted
+
+{{.PlanSteps}}
+
+## Current Diff
+
+```diff
+{{.DiffText}}
+```
+
+## Instructions
+
+1. Which plan steps are complete?
+2. Which are in progress or blocked?
+3. Are there any unplanned changes?
+4. Are tests keeping pace?
+
+## Output Format
+
+{
+  "checkpoint_summary": "...",
+  "steps_complete": ["S1"],
+  "steps_in_progress": ["S2"],
+  "unplanned_changes": ["..."],
+  "test_gaps": ["..."],
+  "recommendation": "CONTINUE|PAUSE|REVERT"
+}
+
+{{template "review_rules" .}}

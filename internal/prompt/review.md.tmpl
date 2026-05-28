@@ -1,0 +1,52 @@
+You are performing a final verification review of an AI-generated git diff.
+
+## Acceptance Criteria (Source-Provided — Authoritative)
+
+{{.SourceCriteria}}
+
+## Plan
+
+{{.PlanSummary}}
+
+## Git Diff
+
+```diff
+{{.DiffText}}
+```
+
+## Diff Stat
+
+{{.DiffStat}}
+
+## Changed Files Rationale
+
+{{.Rationale}}
+
+## Instructions
+
+Review the diff against the acceptance criteria and plan. For each finding:
+- State the AC ID it relates to (or mark as unrelated).
+- Provide the file path and approximate line as evidence.
+- Assign severity: Critical, High, Medium, Minor, Info.
+
+## Output Format
+
+{
+  "recommendation": "APPROVE|WARN|REJECT|BLOCKED",
+  "summary": "...",
+  "findings": [
+    {
+      "ac_id": "AC1",
+      "severity": "High",
+      "file": "path/to/file.go",
+      "message": "...",
+      "evidence": "...",
+      "remediation": "..."
+    }
+  ],
+  "ac_coverage": [
+    {"ac_id": "AC1", "status": "PASS|FAIL|PARTIAL", "evidence": "..."}
+  ]
+}
+
+{{template "review_rules" .}}

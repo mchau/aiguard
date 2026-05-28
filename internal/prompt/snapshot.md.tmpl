@@ -1,0 +1,23 @@
+You are summarizing recent codebase changes for a snapshot update.
+
+## Changed Modules / Paths
+
+{{.ChangedPaths}}
+
+## Instructions
+
+1. Summarize what changed at a high level (1-2 sentences per module).
+2. Flag any new high-risk areas introduced.
+3. Note any new test patterns observed.
+
+Keep responses concise — this is used for a token-efficient codebase map.
+
+## Output Format
+
+{
+  "changed_summaries": [
+    {"path": "...", "summary": "..."}
+  ],
+  "new_risk_areas": ["..."],
+  "new_test_patterns": ["..."]
+}

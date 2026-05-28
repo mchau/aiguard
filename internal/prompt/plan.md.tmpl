@@ -1,0 +1,35 @@
+You are a technical lead. Create an implementation plan for the following requirement.
+
+## Acceptance Criteria
+
+{{.AcceptanceCriteria}}
+
+## Technical Guidance
+
+{{.GuidanceSummary}}
+
+## Instructions
+
+1. Break the work into numbered plan steps.
+2. Each step must map to one or more AC IDs.
+3. Each step must list expected files to change.
+4. Flag any steps that touch high-risk paths.
+5. Flag any steps that require test coverage.
+
+## Output Format
+
+{
+  "plan_summary": "...",
+  "steps": [
+    {
+      "id": "S1",
+      "description": "...",
+      "ac_ids": ["AC1"],
+      "expected_files": ["..."],
+      "risk": "low|medium|high",
+      "requires_tests": true|false
+    }
+  ]
+}
+
+{{template "review_rules" .}}

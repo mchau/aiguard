@@ -1,0 +1,32 @@
+You are a requirements analyst. Extract and normalize acceptance criteria from the requirement below.
+
+## Instructions
+
+1. Identify all existing acceptance criteria under any of these headings: Acceptance Criteria, AC, Criteria, Requirements, Definition of Done, Expected Behavior, Business Rules.
+2. Preserve ALL source-provided criteria exactly as written. Do NOT drop, modify, or contradict them.
+3. Infer additional acceptance criteria that are implied but not stated. Mark each as "inferred".
+4. Identify open questions that need clarification. Mark blocking questions explicitly.
+5. List assumptions made.
+
+## Raw Requirement
+
+{{.RawContent}}
+
+## Output Format
+
+Respond with valid JSON matching this schema:
+{
+  "raw_summary": "one paragraph summary",
+  "inferred_criteria": [
+    {"text": "...", "source": "inferred"}
+  ],
+  "open_questions": [
+    {"id": "Q1", "text": "...", "blocking": true|false, "status": "open"}
+  ],
+  "assumptions": [
+    {"id": "A1", "text": "...", "risk": "..."}
+  ],
+  "non_goals": ["..."]
+}
+
+{{template "review_rules" .}}

@@ -1,0 +1,30 @@
+You are a QA architect. Define a test strategy for the following acceptance criteria.
+
+## Acceptance Criteria
+
+{{.AcceptanceCriteria}}
+
+## Instructions
+
+For each AC, define:
+1. Unit tests required.
+2. Integration tests required.
+3. E2E / regression tests required.
+4. Negative / edge case tests required.
+
+## Output Format
+
+{
+  "strategy_summary": "...",
+  "ac_tests": [
+    {
+      "ac_id": "AC1",
+      "unit": ["..."],
+      "integration": ["..."],
+      "e2e": ["..."],
+      "negative": ["..."]
+    }
+  ]
+}
+
+{{template "review_rules" .}}
