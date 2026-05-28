@@ -1,0 +1,96 @@
+project:
+  name: "my-project"
+  source_branch: develop
+  default_compare_ref: develop
+
+privacy:
+  default_mode: local_first
+  allow_external_ai: false
+  redact_secrets: true
+  include_actual_files_by_default: false
+  max_file_bytes_for_context: 50000
+
+snapshot:
+  include_tree: true
+  include_component_notes: true
+  update_from_diff: true
+  max_tree_depth: 8
+  stale_after_commits: 20
+  ignore:
+    - ".git/**"
+    - "node_modules/**"
+    - "vendor/**"
+    - "dist/**"
+    - "build/**"
+    - ".aiguard/**"
+
+risk_paths:
+  critical:
+    - ".env"
+    - ".env.*"
+    - "secrets/**"
+    - "infra/prod/**"
+  high:
+    - "auth/**"
+    - "billing/**"
+    - "payments/**"
+    - "permissions/**"
+    - "migrations/**"
+    - "database/**"
+
+forbidden_paths:
+  - ".env"
+  - ".env.*"
+  - "secrets/**"
+  - "*.pem"
+  - "*.key"
+
+test_commands:
+  - name: unit
+    command: "go test ./..."
+    timeout_seconds: 600
+
+model_profiles:
+  cheap_fast:
+    provider: claude_code
+    model_alias: haiku
+    effort: low
+  reasoning_high:
+    provider: claude_code
+    model_alias: opus
+    effort: high
+  coding_balanced:
+    provider: claude_code
+    model_alias: sonnet
+    effort: medium
+
+step_routing:
+  snapshot_update: cheap_fast
+  requirement_digest: reasoning_high
+  brainstorm: reasoning_high
+  test_strategy: reasoning_high
+  tech_guidance: reasoning_high
+  guidance_review: reasoning_high
+  plan_create: reasoning_high
+  plan_review: reasoning_high
+  implementation: coding_balanced
+  checkpoint_review: reasoning_high
+  final_review: reasoning_high
+
+agents:
+  claude_code:
+    enabled: true
+    command: claude
+    prompt_arg: "-p"
+    model_arg_template: "--model {{.ModelAlias}}"
+    effort_arg_template: "--effort {{.Effort}}"
+    supports_stdin: true
+    timeout_seconds: 3600
+  codex:
+    enabled: false
+    command: codex
+    prompt_arg: ""
+    model_arg_template: ""
+    effort_arg_template: ""
+    supports_stdin: true
+    timeout_seconds: 3600
