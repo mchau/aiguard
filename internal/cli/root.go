@@ -7,9 +7,11 @@ import (
 var cfgPath string
 
 var rootCmd = &cobra.Command{
-	Use:   "aiguard",
-	Short: "Local-first AI development harness",
-	Long:  "AIGuard prevents AI-generated code from violating business requirements by gating the development workflow with deterministic checks and multi-reviewer verification.",
+	Use:           "aiguard",
+	Short:         "Local-first AI development harness",
+	Long:          "AIGuard prevents AI-generated code from violating business requirements by gating the development workflow with deterministic checks and multi-reviewer verification.",
+	SilenceUsage:  true,
+	SilenceErrors: false,
 }
 
 func Execute() error {
