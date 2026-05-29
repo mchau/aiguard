@@ -1,6 +1,6 @@
 BIN := bin/aiguard
 
-.PHONY: build test lint clean
+.PHONY: build test lint smoke clean
 
 build:
 	go build -o $(BIN) ./cmd/aiguard
@@ -11,6 +11,9 @@ test:
 lint:
 	go vet ./...
 
+smoke:
+	./scripts/smoke.sh
+
 clean:
-	rm -f $(BIN)
+	rm -rf $(BIN) .smoke
 	go clean -testcache

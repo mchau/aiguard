@@ -71,6 +71,15 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Transient artifacts (audit log, reviewer transcripts, checkpoint reports)
+	// would otherwise show up in every diff and trigger the rationale check.
+	// Persistent gate/digest/plan artifacts are intentionally kept tracked.
+	gitignorePath := cwd + "/" + project.DotAiguard + "/.gitignore"
+	gitignoreBody := "logs/\nreviews/\ncheckpoints/\n*.ai-raw.txt\n"
+	if err := os.WriteFile(gitignorePath, []byte(gitignoreBody), 0o644); err != nil {
+		return fmt.Errorf("write .aiguard/.gitignore: %w", err)
+	}
+
 	// 1.26: write audit event
 	_ = audit.Append(cwd, audit.Event{
 		Command: "init",
