@@ -163,6 +163,19 @@ func TestSecretsClean(t *testing.T) {
 	}
 }
 
+func TestSecretsAWSSecretAccessKey(t *testing.T) {
+	// Regression: AWS_SECRET_ACCESS_KEY= was not caught by the original "secret=" pattern
+	diff := "+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n"
+	input := defaultInput(nil, diff)
+	results, err := runCheck("secret_detection", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) == 0 || results[0].Severity != checks.SeverityBlocked {
+		t.Errorf("expected BLOCKED for AWS_SECRET_ACCESS_KEY, got %v", results)
+	}
+}
+
 func TestSecretsNotInRemovedLines(t *testing.T) {
 	// Removed lines (starting with -) should not trigger
 	diff := "-AKIAIOSFODNN7EXAMPLE\n"

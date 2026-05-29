@@ -9,6 +9,7 @@ type TypedInput struct {
 	ChangedFiles  []string
 	DiffText      string
 	FileContent   func(path string) ([]byte, error)
+	RootDir       string
 	PlanPath      string
 	RationalePath string
 }
@@ -20,6 +21,7 @@ func (t TypedInput) ToCheckInput() CheckInput {
 		ChangedFiles:  t.ChangedFiles,
 		DiffText:      t.DiffText,
 		FileContent:   t.FileContent,
+		RootDir:       t.RootDir,
 		PlanPath:      t.PlanPath,
 		RationalePath: t.RationalePath,
 	}

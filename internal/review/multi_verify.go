@@ -18,11 +18,10 @@ import (
 
 // MultiVerifyOptions controls the full verify pipeline.
 type MultiVerifyOptions struct {
-	Base        string
-	Reviewers   []string // agent names from config.agents
-	LocalOnly   bool
-	RunTests    bool
-	RootDir     string
+	Base      string
+	Reviewers []string // agent names from config.agents
+	LocalOnly bool
+	RootDir   string
 }
 
 // RunMultiVerify executes the full 7-stage verification pipeline.
@@ -45,6 +44,7 @@ func RunMultiVerify(ctx context.Context, cfg *config.Config, gc *git.Client, opt
 		Config:        cfg,
 		ChangedFiles:  changedFiles,
 		DiffText:      diffText,
+		RootDir:       rootDir,
 		PlanPath:      project.PlanJSON(rootDir),
 		RationalePath: project.ChangedFilesRationaleMD(rootDir),
 	}.ToCheckInput()

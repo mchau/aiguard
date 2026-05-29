@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mchau/aiguard/internal/project"
 	"github.com/mchau/aiguard/internal/requirements"
 )
 
@@ -16,23 +17,15 @@ type traceabilityCheck struct{}
 func (t *traceabilityCheck) ID() string { return "ac_traceability" }
 
 func (t *traceabilityCheck) Run(_ context.Context, input CheckInput) ([]DeterministicCheckResult, error) {
-	c := cfg(input)
-	if c == nil {
-		return nil, nil
-	}
-
-	// Attempt to load acceptance-criteria.json if the path helper is available.
-	// The check is registered now but promoted to FAIL in M8.9.
-	// If no AC file exists, emit INFO to note that traceability is not yet configured.
-	acPath := acPathFromInput(input)
-	if acPath == "" {
+	if input.RootDir == "" {
 		return []DeterministicCheckResult{{
 			CheckID:  t.ID(),
 			Severity: SeverityInfo,
-			Message:  "acceptance-criteria.json not found; run 'aiguard digest create' to enable traceability checks",
+			Message:  "traceability check skipped (no project root available)",
 		}}, nil
 	}
 
+	acPath := project.AcceptanceCriteriaJSON(input.RootDir)
 	data, err := os.ReadFile(acPath)
 	if os.IsNotExist(err) {
 		return []DeterministicCheckResult{{
@@ -50,23 +43,54 @@ func (t *traceabilityCheck) Run(_ context.Context, input CheckInput) ([]Determin
 		return nil, fmt.Errorf("parse acceptance-criteria.json: %w", err)
 	}
 
-	// INFO: list ACs — no plan exists yet to check against.
-	// Promoted to FAIL in M8.9 when plan exists.
+	// Load plan steps if plan.json exists
+	coveredByPlan := loadPlanACIDs(input.PlanPath)
+	hasPlan := len(coveredByPlan) > 0
+
 	var results []DeterministicCheckResult
 	for _, ac := range acs {
-		results = append(results, DeterministicCheckResult{
-			CheckID:  t.ID(),
-			Severity: SeverityInfo,
-			Message:  fmt.Sprintf("%s (%s): %s — no plan step yet", ac.ID, ac.Source, ac.Text),
-		})
+		if hasPlan && ac.Source == "ticket_acceptance_criteria" {
+			if !coveredByPlan[ac.ID] {
+				results = append(results, DeterministicCheckResult{
+					CheckID:     t.ID(),
+					Severity:    SeverityHigh,
+					Message:     fmt.Sprintf("%s (%s): %q not covered by any plan step", ac.ID, ac.Source, ac.Text),
+					Remediation: fmt.Sprintf("add a plan step for %s or document why it is not applicable", ac.ID),
+				})
+			}
+		} else {
+			results = append(results, DeterministicCheckResult{
+				CheckID:  t.ID(),
+				Severity: SeverityInfo,
+				Message:  fmt.Sprintf("%s (%s): %s — no plan yet", ac.ID, ac.Source, ac.Text),
+			})
+		}
 	}
 	return results, nil
 }
 
-// acPathFromInput extracts the AC JSON path from CheckInput when available.
-// The path is stored in PlanPath field (overloaded) or derived from RationalePath.
-// A proper context pack will populate this in M7.
-func acPathFromInput(input CheckInput) string {
-	// PlanPath is used to pass the AC path until M7 builds a proper context pack.
-	return input.PlanPath
+// loadPlanACIDs parses plan.json and returns a set of AC IDs covered by plan steps.
+func loadPlanACIDs(planPath string) map[string]bool {
+	if planPath == "" {
+		return nil
+	}
+	data, err := os.ReadFile(planPath)
+	if err != nil {
+		return nil
+	}
+	var plan struct {
+		Steps []struct {
+			ACIDs []string `json:"ac_ids"`
+		} `json:"steps"`
+	}
+	if err := json.Unmarshal(data, &plan); err != nil {
+		return nil
+	}
+	covered := map[string]bool{}
+	for _, step := range plan.Steps {
+		for _, id := range step.ACIDs {
+			covered[id] = true
+		}
+	}
+	return covered
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/mchau/aiguard/internal/gates"
 	"github.com/mchau/aiguard/internal/project"
 	"github.com/mchau/aiguard/internal/prompt"
+	"github.com/mchau/aiguard/internal/requirements"
 )
 
 var guidanceCmd = &cobra.Command{
@@ -84,6 +85,9 @@ func runGuidanceCreate(cmd *cobra.Command, args []string) error {
 		}
 		if err := m.RequireApproved("digest"); err != nil {
 			return err
+		}
+		if questions := loadQuestionsJSON(project.OpenQuestionsMD(root) + ".json"); requirements.HasBlockingOpenQuestions(questions) {
+			return fmt.Errorf("there are open blocking clarification questions; run 'aiguard clarify' to resolve them (or use --force --reason)")
 		}
 	} else if guidanceForceReason == "" {
 		return fmt.Errorf("--reason is required with --force")

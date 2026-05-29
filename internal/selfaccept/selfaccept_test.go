@@ -337,7 +337,7 @@ func TestCriterion19_CanRunLocalOnlyDeterministicMode(t *testing.T) {
 	cfg.Project.SourceBranch = "main"
 	gc := git.New(dir)
 
-	verdict, err := review.RunDeterministic(context.Background(), cfg, gc, "main")
+	verdict, err := review.RunDeterministic(context.Background(), cfg, gc, "main", dir)
 	if err != nil {
 		t.Fatalf("RunDeterministic: %v", err)
 	}

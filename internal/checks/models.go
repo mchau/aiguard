@@ -28,7 +28,7 @@ type CheckInput struct {
 	ChangedFiles []string
 	DiffText     string
 	FileContent  func(path string) ([]byte, error) // nil-safe accessor
-	// Optional — nil until M8 gates are in place
+	RootDir      string // project root containing .aiguard/
 	PlanPath      string
 	RationalePath string
 }

@@ -62,7 +62,7 @@ func runVerify(cmd *cobra.Command, args []string) error {
 
 	if verifyLocalOnly || verifyReviewers == "" {
 		// Deterministic-only path (M2 implementation)
-		verdict, err = review.RunDeterministic(ctx, cfg, gc, base)
+		verdict, err = review.RunDeterministic(ctx, cfg, gc, base, root)
 		if err != nil {
 			return fmt.Errorf("run deterministic checks: %w", err)
 		}
