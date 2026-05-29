@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mchau/aiguard/internal/project"
 	"github.com/mchau/aiguard/internal/requirements"
@@ -50,7 +51,7 @@ func (t *traceabilityCheck) Run(_ context.Context, input CheckInput) ([]Determin
 	var results []DeterministicCheckResult
 	for _, ac := range acs {
 		if hasPlan && ac.Source == "ticket_acceptance_criteria" {
-			if !coveredByPlan[ac.ID] {
+			if !coveredByPlan[normalizeACID(ac.ID)] {
 				results = append(results, DeterministicCheckResult{
 					CheckID:     t.ID(),
 					Severity:    SeverityHigh,
@@ -89,8 +90,26 @@ func loadPlanACIDs(planPath string) map[string]bool {
 	covered := map[string]bool{}
 	for _, step := range plan.Steps {
 		for _, id := range step.ACIDs {
-			covered[id] = true
+			covered[normalizeACID(id)] = true
 		}
 	}
 	return covered
+}
+
+// normalizeACID makes AC ID matching robust to formatting drift in AI output
+// ("AC1", "ac-1", "AC_001" all collapse to "ac1").
+func normalizeACID(id string) string {
+	s := strings.ToLower(id)
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, "_", "")
+	s = strings.ReplaceAll(s, " ", "")
+	// Strip leading zeros after the AC prefix
+	if strings.HasPrefix(s, "ac") {
+		rest := strings.TrimLeft(s[2:], "0")
+		if rest == "" {
+			rest = "0"
+		}
+		s = "ac" + rest
+	}
+	return s
 }

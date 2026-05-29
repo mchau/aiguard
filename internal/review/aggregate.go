@@ -30,14 +30,18 @@ func detectDisagreements(findings []ReviewerFinding) []ReviewerDisagreement {
 		if len(acFindings) < 2 {
 			continue
 		}
-		// Disagreement: different reviewers with different severities
-		severities := map[string]bool{}
+		// Only flag when reviewers land in different coarse buckets
+		// (soft = Info/Medium/WARN, hard = High/Critical/BLOCKED/REJECT).
+		// Info-vs-Medium disagreement is noise, not signal.
+		buckets := map[string]bool{}
 		reviewers := map[string]bool{}
+		severities := map[string]bool{}
 		for _, f := range acFindings {
-			severities[f.Severity] = true
+			buckets[severityBucket(f.Severity)] = true
 			reviewers[f.Reviewer] = true
+			severities[f.Severity] = true
 		}
-		if len(severities) > 1 && len(reviewers) > 1 {
+		if len(buckets) > 1 && len(reviewers) > 1 {
 			disagreements = append(disagreements, ReviewerDisagreement{
 				Topic:    fmt.Sprintf("AC: %s — severities: %s", ac, strings.Join(mapKeys(severities), ", ")),
 				Findings: acFindings,
@@ -45,6 +49,18 @@ func detectDisagreements(findings []ReviewerFinding) []ReviewerDisagreement {
 		}
 	}
 	return disagreements
+}
+
+// severityBucket maps a finding severity string to "soft" or "hard".
+// Unknown strings default to "soft" so they don't synthesize disagreements
+// from a misspelled severity.
+func severityBucket(sev string) string {
+	switch sev {
+	case checks.SeverityHigh, checks.SeverityCritical, checks.SeverityBlocked, "REJECT":
+		return "hard"
+	default:
+		return "soft"
+	}
 }
 
 func mapKeys(m map[string]bool) []string {

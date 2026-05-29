@@ -2,6 +2,7 @@ package checks_test
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -186,6 +187,84 @@ func TestSecretsNotInRemovedLines(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Errorf("expected no results for removed lines, got %v", results)
+	}
+}
+
+// --- plan_drift scope ---
+
+func TestPlanDriftIgnoresNonRiskFiles(t *testing.T) {
+	dir := t.TempDir()
+	planPath := dir + "/plan.json"
+	if err := os.WriteFile(planPath, []byte(`{"steps":[{"id":"S1","expected_files":["service.go"]}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	input := checks.TypedInput{
+		Config:       config.Default(),
+		ChangedFiles: []string{"service.go", "handlers/router.go"}, // router.go is unplanned but not high-risk
+		PlanPath:     planPath,
+	}.ToCheckInput()
+	results, err := runCheck("plan_drift", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected no plan_drift on non-risk file, got %v", results)
+	}
+}
+
+func TestPlanDriftFiresOnRiskPath(t *testing.T) {
+	dir := t.TempDir()
+	planPath := dir + "/plan.json"
+	if err := os.WriteFile(planPath, []byte(`{"steps":[{"id":"S1","expected_files":["service.go"]}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	input := checks.TypedInput{
+		Config:       config.Default(),
+		ChangedFiles: []string{"service.go", "auth/login.go"}, // auth/** is high-risk and unplanned
+		PlanPath:     planPath,
+	}.ToCheckInput()
+	results, err := runCheck("plan_drift", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].File != "auth/login.go" {
+		t.Errorf("expected plan_drift WARN on auth/login.go, got %v", results)
+	}
+}
+
+// --- AC ID normalization ---
+
+func TestACTraceabilityNormalizesIDs(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(dir+"/.aiguard/requirements", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	acJSON := `[{"id":"AC1","text":"do X","source":"ticket_acceptance_criteria"}]`
+	if err := os.WriteFile(dir+"/.aiguard/requirements/acceptance-criteria.json", []byte(acJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Plan uses dash-form "ac-1" — should still match "AC1" via normalization
+	planJSON := `{"steps":[{"id":"S1","ac_ids":["ac-1"]}]}`
+	planPath := dir + "/.aiguard/plans/plan.json"
+	if err := os.MkdirAll(dir+"/.aiguard/plans", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(planPath, []byte(planJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	input := checks.TypedInput{
+		Config:   config.Default(),
+		RootDir:  dir,
+		PlanPath: planPath,
+	}.ToCheckInput()
+	results, err := runCheck("ac_traceability", input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range results {
+		if r.Severity == checks.SeverityHigh {
+			t.Errorf("AC1 covered by 'ac-1' after normalization; should not be High: %v", r)
+		}
 	}
 }
 

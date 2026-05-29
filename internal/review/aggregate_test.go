@@ -74,6 +74,18 @@ func TestDisagreementDetection(t *testing.T) {
 	}
 }
 
+func TestNoDisagreementSameBucket(t *testing.T) {
+	// Info vs Medium are both "soft" — not a real disagreement, just noise
+	findings := []review.ReviewerFinding{
+		{Reviewer: "claude", Severity: "Info", RelatedAC: "AC1"},
+		{Reviewer: "codex", Severity: "Medium", RelatedAC: "AC1"},
+	}
+	_, disagreements := review.AggregateFindings(nil, findings)
+	if len(disagreements) != 0 {
+		t.Errorf("Info vs Medium same bucket should not be a disagreement, got %d", len(disagreements))
+	}
+}
+
 func TestNoDisagreementSameReviewer(t *testing.T) {
 	findings := []review.ReviewerFinding{
 		{Reviewer: "claude", Severity: "Info", RelatedAC: "AC1"},

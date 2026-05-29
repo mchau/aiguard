@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/bmatcuk/doublestar/v4"
 )
 
 func init() { Register(&planDriftCheck{}) }
@@ -53,19 +55,43 @@ func (p *planDriftCheck) Run(_ context.Context, input CheckInput) ([]Determinist
 		return nil, nil
 	}
 
+	// Only flag drift on high-risk paths. Plans rarely enumerate every
+	// auxiliary file (test scaffolding, router wiring, deps); warning on
+	// all of them is noise. We care when sensitive code is touched without
+	// a plan step authorizing it.
+	c := cfg(input)
+	var riskPatterns []string
+	if c != nil {
+		riskPatterns = append(riskPatterns, c.RiskPaths.Critical...)
+		riskPatterns = append(riskPatterns, c.RiskPaths.High...)
+	}
+
 	var results []DeterministicCheckResult
 	for _, changed := range input.ChangedFiles {
-		if !expected[changed] && !isTestOrConfig(changed) {
-			results = append(results, DeterministicCheckResult{
-				CheckID:     p.ID(),
-				Severity:    SeverityWarn,
-				File:        changed,
-				Message:     fmt.Sprintf("file %q changed but not in approved plan", changed),
-				Remediation: "update the plan to include this file, or revert the change if unintentional",
-			})
+		if expected[changed] || isTestOrConfig(changed) {
+			continue
 		}
+		if !matchesAny(changed, riskPatterns) {
+			continue
+		}
+		results = append(results, DeterministicCheckResult{
+			CheckID:     p.ID(),
+			Severity:    SeverityWarn,
+			File:        changed,
+			Message:     fmt.Sprintf("risk-path file %q changed but not in approved plan", changed),
+			Remediation: "add a plan step authorizing this change, or revert if unintentional",
+		})
 	}
 	return results, nil
+}
+
+func matchesAny(file string, patterns []string) bool {
+	for _, p := range patterns {
+		if ok, _ := doublestar.Match(p, file); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func isTestOrConfig(f string) bool {
