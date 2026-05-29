@@ -6,8 +6,8 @@ func Default() *Config {
 	return &Config{
 		Project: Project{
 			Name:              "",
-			SourceBranch:      "develop",
-			DefaultCompareRef: "develop",
+			SourceBranch:      "main",
+			DefaultCompareRef: "main",
 		},
 		Privacy: Privacy{
 			DefaultMode:                 "local_first",

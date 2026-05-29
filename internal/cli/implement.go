@@ -1,45 +1,46 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"time"
+	"os/exec"
+	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/mchau/aiguard/internal/agents"
 	"github.com/mchau/aiguard/internal/audit"
-	"github.com/mchau/aiguard/internal/config"
 	"github.com/mchau/aiguard/internal/project"
 )
 
-var implementCmd = &cobra.Command{
-	Use:   "implement",
-	Short: "Invoke the configured AI agent for an implementation step",
-	RunE:  runImplement,
+// 'prompt' assembles a prompt from the approved digest/guidance/plan
+// so the developer can paste it into their AI tool of choice.
+//
+// AIGuard does not patch files itself: agent CLIs in `-p` mode return text,
+// not edits. Misleadingly running an agent and dumping stdout was renamed
+// to surface this honestly.
+var promptCmd = &cobra.Command{
+	Use:   "prompt",
+	Short: "Assemble the implementation prompt for the configured AI agent",
+	RunE:  runPromptAssemble,
 }
 
-var implementAgent string
-var implementStep string
+var promptStep string
+var promptCopy bool
+var promptOut string
 
 func init() {
-	implementCmd.Flags().StringVar(&implementAgent, "agent", "claude_code", "agent to use for implementation")
-	implementCmd.Flags().StringVar(&implementStep, "step", "", "plan step ID to implement (e.g. S1)")
-	rootCmd.AddCommand(implementCmd)
+	promptCmd.Flags().StringVar(&promptStep, "step", "", "plan step ID to focus on (e.g. S1); blank emits the full plan")
+	promptCmd.Flags().BoolVar(&promptCopy, "copy", false, "copy the assembled prompt to the system clipboard")
+	promptCmd.Flags().StringVar(&promptOut, "out", "", "write the assembled prompt to this file instead of stdout")
+	rootCmd.AddCommand(promptCmd)
 }
 
-func runImplement(cmd *cobra.Command, args []string) error {
+func runPromptAssemble(cmd *cobra.Command, args []string) error {
 	root, err := requireRoot()
 	if err != nil {
 		return err
 	}
 
-	cfg, err := config.Load(project.ConfigFile(root))
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	// Build prompt: load plan, AC, and focus on the specified step
 	planText := loadFileOr(project.PlanMD(root), "*(no plan)*")
 	acText := loadFileOr(project.AcceptanceCriteriaJSON(root), "[]")
 	guidanceText := loadFileOr(project.TechGuidanceMD(root), "*(no guidance)*")
@@ -59,47 +60,45 @@ func runImplement(cmd *cobra.Command, args []string) error {
 %s
 
 Implement the code changes needed. Do not modify files outside the plan scope.
-`, acText, guidanceText, planText, stepOrAll(implementStep))
+`, acText, guidanceText, planText, focusOrAll(promptStep))
 
-	profileName := cfg.StepRouting["implementation"]
-	if profileName == "" {
-		profileName = "coding_balanced"
-	}
-	profile, ok := cfg.ModelProfiles[profileName]
-	if !ok {
-		return fmt.Errorf("model profile %q not found", profileName)
-	}
-
-	runner, err := agents.Get(cfg, profile.Provider, profileName)
-	if err != nil {
-		return fmt.Errorf("get agent: %w", err)
-	}
-
-	artifactPath := project.ImplementationDir(root) + "/implement-transcript.md"
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.Agents[profile.Provider].TimeoutSeconds)*time.Second)
-	defer cancel()
-
-	resp, err := runner.Run(ctx, agents.AgentRequest{
-		Prompt:       promptText,
-		WorkDir:      root,
-		ArtifactPath: artifactPath,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARN: agent returned error: %v\n", err)
+	switch {
+	case promptOut != "":
+		if err := os.WriteFile(promptOut, []byte(promptText), 0o644); err != nil {
+			return fmt.Errorf("write prompt: %w", err)
+		}
+		fmt.Printf("Prompt written to %s\n", promptOut)
+	case promptCopy:
+		if err := copyToClipboard(promptText); err != nil {
+			return fmt.Errorf("copy to clipboard: %w (use --out to write to a file instead)", err)
+		}
+		fmt.Println("Prompt copied to clipboard. Paste it into your AI tool.")
+	default:
+		fmt.Print(promptText)
 	}
 
-	if resp != nil && resp.Stdout != "" {
-		fmt.Println(resp.Stdout)
-	}
-	fmt.Printf("Transcript saved to %s\n", artifactPath)
-
-	_ = audit.Append(root, audit.Event{Command: "implement", Status: "success", Inputs: []string{"--step", implementStep}, Outputs: []string{artifactPath}})
+	_ = audit.Append(root, audit.Event{Command: "prompt", Status: "success", Inputs: []string{"--step", promptStep}, Outputs: []string{}})
 	return nil
 }
 
-func stepOrAll(step string) string {
+func focusOrAll(step string) string {
 	if step == "" {
 		return "Implement all plan steps."
 	}
 	return fmt.Sprintf("Implement plan step: %s", step)
+}
+
+func copyToClipboard(text string) error {
+	var bin string
+	switch runtime.GOOS {
+	case "darwin":
+		bin = "pbcopy"
+	case "linux":
+		bin = "xclip"
+	default:
+		return fmt.Errorf("clipboard not supported on %s", runtime.GOOS)
+	}
+	cmd := exec.Command(bin)
+	cmd.Stdin = strings.NewReader(text)
+	return cmd.Run()
 }

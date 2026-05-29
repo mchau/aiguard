@@ -55,7 +55,7 @@ var planApproveCmd = &cobra.Command{
 		}
 		_ = audit.Append(root, audit.Event{Command: "plan approve", Status: "success", Inputs: []string{}, Outputs: []string{}})
 		fmt.Println("Plan gate APPROVED_BY_USER.")
-		fmt.Println("Next step: run 'aiguard implement' or 'aiguard checkpoint'.")
+		fmt.Println("Next step: run 'aiguard prompt' to assemble the implementation prompt, then 'aiguard checkpoint' as you go.")
 		return nil
 	},
 }

@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/mchau/aiguard/internal/audit"
@@ -21,7 +23,7 @@ var initCmd = &cobra.Command{
 
 func init() {
 	initCmd.Flags().BoolVar(&initForce, "force", false, "overwrite existing .aiguard/ workspace")
-	initCmd.Flags().StringVar(&initSourceBranch, "source-branch", "develop", "source-of-truth branch for this project")
+	initCmd.Flags().StringVar(&initSourceBranch, "source-branch", "", "source-of-truth branch (autodetected from origin/HEAD, falls back to 'main')")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -57,12 +59,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// 1.24c: write config.yaml from defaults, applying --source-branch flag
-	cfg := config.Default()
-	if initSourceBranch != "" {
-		cfg.Project.SourceBranch = initSourceBranch
-		cfg.Project.DefaultCompareRef = initSourceBranch
+	branch := initSourceBranch
+	if branch == "" {
+		branch = detectDefaultBranch(cwd)
 	}
+
+	cfg := config.Default()
+	cfg.Project.SourceBranch = branch
+	cfg.Project.DefaultCompareRef = branch
 	if err := config.Write(cfgPath, cfg); err != nil {
 		return err
 	}
@@ -79,4 +83,26 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Source branch: %s\n", cfg.Project.SourceBranch)
 	fmt.Println("Next step: run 'aiguard snapshot update' to map the codebase.")
 	return nil
+}
+
+// detectDefaultBranch reads origin/HEAD to find the remote's default branch,
+// then falls back to the first of {main, master} that exists locally,
+// and finally to "main".
+func detectDefaultBranch(dir string) string {
+	cmd := exec.Command("git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	cmd.Dir = dir
+	if out, err := cmd.Output(); err == nil {
+		ref := strings.TrimSpace(string(out))
+		if name := strings.TrimPrefix(ref, "origin/"); name != "" {
+			return name
+		}
+	}
+	for _, candidate := range []string{"main", "master"} {
+		c := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+candidate)
+		c.Dir = dir
+		if c.Run() == nil {
+			return candidate
+		}
+	}
+	return "main"
 }
